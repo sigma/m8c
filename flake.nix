@@ -22,11 +22,12 @@
     }:
     let
       pname = "m8c";
-      version = "2.2.3";
+      version = builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./VERSION);
       fs = nixpkgs.lib.fileset;
       sourceFiles = fs.intersection (fs.gitTracked ./.) (
         fs.unions [
           ./CMakeLists.txt
+          ./VERSION
           ./src
           ./package
           ./gamecontrollerdb.txt
