@@ -103,13 +103,17 @@
         inherit (self.packages.${final.system}) m8c m8c-sdl2;
       };
 
-      apps = eachSystem (pkgs:
+      apps = eachSystem (
+        pkgs:
         let
-          m8cBin = pkg:
-            if pkgs.stdenv.isDarwin
-            then "${pkg}/m8c.app/Contents/MacOS/m8c"
-            else "${pkg}/bin/m8c";
-        in rec {
+          m8cBin =
+            pkg:
+            if pkgs.stdenv.isDarwin then
+              "${pkg}/m8c.app/Contents/MacOS/m8c"
+            else
+              "${pkg}/bin/m8c";
+        in
+        rec {
           m8c = {
             type = "app";
             program = m8cBin self.packages.${pkgs.system}.m8c;
@@ -119,7 +123,8 @@
             program = m8cBin self.packages.${pkgs.system}.m8c-sdl2;
           };
           default = m8c;
-        });
+        }
+      );
 
       devShells = eachSystem (
         pkgs: with pkgs; {
