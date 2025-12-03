@@ -34,8 +34,11 @@ endif
 #Any special libraries you are using in your project (e.g. -lbcm2835 -lrt `pkg-config --libs gtk+-3.0` ), or leave blank
 INCLUDES = $(shell pkg-config --libs $(SDL_PKG) libserialport | sed 's/-mwindows//')
 
+# Common compiler flags shared across all build targets
+COMMON_CFLAGS = -DAPP_VERSION=\"v$(VERSION)\" -Wall -Wextra -O2 -pipe -I. -DNDEBUG
+
 #Set any compiler flags you want to use (e.g. -I/usr/include/somefolder `pkg-config --cflags gtk+-3.0` ), or leave blank
-local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) libserialport) -DUSE_LIBSERIALPORT $(SDL_DEFINE) -DAPP_VERSION=\"v$(VERSION)\" -Wall -Wextra -O2 -pipe -I. -DNDEBUG
+local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) libserialport) -DUSE_LIBSERIALPORT $(SDL_DEFINE) $(COMMON_CFLAGS)
 
 #define a rule that applies to all files ending in the .o suffix, which says that the .o file depends upon the .c version of the file and all the .h files included in the DEPS macro.  Compile each object file
 %.o: %$(EXTENSION) $(DEPS)
@@ -47,11 +50,11 @@ m8c: $(OBJ)
 	$(CC) -o $@ $^ $(local_CFLAGS) $(INCLUDES)
 
 libusb: INCLUDES = $(shell pkg-config --libs $(SDL_PKG) libusb-1.0)
-libusb: local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) libusb-1.0) $(SDL_DEFINE) -DUSE_LIBUSB=1 -DAPP_VERSION=\"v$(VERSION)\" -Wall -Wextra -O2 -pipe -I. -DNDEBUG
+libusb: local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) libusb-1.0) $(SDL_DEFINE) -DUSE_LIBUSB=1 $(COMMON_CFLAGS)
 libusb: m8c
 
 rtmidi: INCLUDES = $(shell pkg-config --libs $(SDL_PKG) rtmidi)
-rtmidi: local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) rtmidi) $(SDL_DEFINE) -DUSE_RTMIDI -DAPP_VERSION=\"v$(VERSION)\" -Wall -Wextra -O2 -pipe -I. -DNDEBUG
+rtmidi: local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) rtmidi) $(SDL_DEFINE) -DUSE_RTMIDI $(COMMON_CFLAGS)
 rtmidi: m8c
 
 #Cleanup
