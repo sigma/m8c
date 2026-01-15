@@ -30,6 +30,8 @@
 
           nativeBuildInputs = [ cmake copyDesktopItems pkg-config ];
           buildInputs = [ sdl3 libserialport ];
+
+          cmakeFlags = [ "-DSKIP_BUNDLE_FIXUP=ON" ];
         };
       m8c-sdl2-package =
         { stdenv
@@ -47,7 +49,7 @@
           nativeBuildInputs = [ cmake copyDesktopItems pkg-config ];
           buildInputs = [ SDL2 libserialport ];
 
-          cmakeFlags = [ "-DUSE_SDL2=ON" ];
+          cmakeFlags = [ "-DUSE_SDL2=ON" "-DSKIP_BUNDLE_FIXUP=ON" ];
         };
       eachSystem = f: nixpkgs.lib.genAttrs (import systems) (system: f
         (import nixpkgs { inherit system; })

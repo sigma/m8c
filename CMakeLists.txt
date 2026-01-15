@@ -8,6 +8,7 @@ option(USE_LIBSERIALPORT "Use libserialport as a backend" OFF)
 option(USE_LIBUSB "Use libusb as a backend" OFF)
 option(USE_RTMIDI "Use RtMidi as a backend" OFF)
 option(USE_SDL2 "Build with SDL2 instead of SDL3" OFF)
+option(SKIP_BUNDLE_FIXUP "Skip fixup_bundle for Nix builds" OFF)
 
 # Enable USE_LIBSERIALPORT by default if neither USE_LIBUSB nor USE_RTMIDI are defined
 if (NOT USE_LIBUSB AND NOT USE_RTMIDI)
@@ -102,16 +103,18 @@ if (APPLE)
 
     set(APPS "\${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app")
 
-    if(CODESIGN_CERT_NAME)
-        # Use the specified certificate
-        install(CODE "include(BundleUtilities)
-        fixup_bundle(\"${APPS}\" \"\" \"\")
-        execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign \"${CODESIGN_CERT_NAME}\" --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
-    else()
-        # Use ad-hoc signing (self-signed) when no certificate is specified
-        install(CODE "include(BundleUtilities)
-        fixup_bundle(\"${APPS}\" \"\" \"\")
-        execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign - --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+    if(NOT SKIP_BUNDLE_FIXUP)
+        if(CODESIGN_CERT_NAME)
+            # Use the specified certificate
+            install(CODE "include(BundleUtilities)
+            fixup_bundle(\"${APPS}\" \"\" \"\")
+            execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign \"${CODESIGN_CERT_NAME}\" --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+        else()
+            # Use ad-hoc signing (self-signed) when no certificate is specified
+            install(CODE "include(BundleUtilities)
+            fixup_bundle(\"${APPS}\" \"\" \"\")
+            execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign - --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+        endif()
     endif()
 
     set(CPACK_PACKAGE_NAME "m8c")
