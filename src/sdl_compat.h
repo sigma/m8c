@@ -405,6 +405,20 @@ static inline int SDL_SetAppMetadata_Compat(const char *appname, const char *app
 #define SDL_HINT_IOS_HIDE_HOME_INDICATOR "SDL_IOS_HIDE_HOME_INDICATOR"
 #define SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES "SDL_AUDIO_DEVICE_SAMPLE_FRAMES"
 
+// SDL_strtok_r doesn't exist in SDL2 - use standard C strtok_r
+#include <string.h>
+#ifdef _WIN32
+#define SDL_strtok_r(str, delim, saveptr) strtok_s(str, delim, saveptr)
+#else
+#define SDL_strtok_r(str, delim, saveptr) strtok_r(str, delim, saveptr)
+#endif
+
+// SDL3 renamed SDL_SetThreadPriority to SDL_SetCurrentThreadPriority
+#define SDL_SetCurrentThreadPriority(p) SDL_SetThreadPriority(p)
+
+// SDL3 renamed thread priority constants
+#define SDL_THREAD_PRIORITY_TIME_CRITICAL SDL_THREAD_PRIORITY_HIGH
+
 // ============================================================================
 // Event structure differences
 // ============================================================================
