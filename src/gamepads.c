@@ -4,7 +4,7 @@
 
 #include "gamepads.h"
 
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 #include <stdio.h>
 
 // Maximum number of game controllers to support
