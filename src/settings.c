@@ -6,7 +6,7 @@
 #include "render.h"
 
 #include "fonts/fonts.h"
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 
 // Constants for the UI
 #define SETTINGS_MAX_ITEMS 64
@@ -422,7 +422,7 @@ void settings_handle_event(struct app_context *ctx, const SDL_Event *e) {
 
   if (TARGET_OS_IOS == 0 || gamepad_count == 0) {
     if (e->type == SDL_EVENT_KEY_DOWN) {
-      if (e->key.key == SDLK_ESCAPE || e->key.key == SDLK_F1) {
+      if (COMPAT_KEY_SYM(e) == SDLK_ESCAPE || COMPAT_KEY_SYM(e) == SDLK_F1) {
         settings_handle_back();
         return;
       }
@@ -430,26 +430,26 @@ void settings_handle_event(struct app_context *ctx, const SDL_Event *e) {
       if (g_settings.capture_mode == CAPTURE_KEY) {
         if (g_settings.capture_target != NULL) {
           unsigned int *dst = g_settings.capture_target;
-          *dst = e->key.scancode;
+          *dst = COMPAT_KEY_SCANCODE(e);
         }
         g_settings.capture_mode = CAPTURE_NONE;
         g_settings.capture_target = NULL;
         g_settings.needs_redraw = 1;
         return;
       }
-      if (e->key.key == SDLK_UP) {
+      if (COMPAT_KEY_SYM(e) == SDLK_UP) {
         settings_move(&ctx->conf, -1);
         return;
       }
-      if (e->key.key == SDLK_DOWN) {
+      if (COMPAT_KEY_SYM(e) == SDLK_DOWN) {
         settings_move(&ctx->conf, 1);
         return;
       }
-      if (e->key.key == SDLK_LEFT || e->key.key == SDLK_RIGHT) {
-        if (settings_adjust_selected(&ctx->conf, e->key.key == SDLK_LEFT ? -1 : 1))
+      if (COMPAT_KEY_SYM(e) == SDLK_LEFT || COMPAT_KEY_SYM(e) == SDLK_RIGHT) {
+        if (settings_adjust_selected(&ctx->conf, COMPAT_KEY_SYM(e) == SDLK_LEFT ? -1 : 1))
           return;
       }
-      if (e->key.key == SDLK_RETURN || e->key.key == SDLK_SPACE) {
+      if (COMPAT_KEY_SYM(e) == SDLK_RETURN || COMPAT_KEY_SYM(e) == SDLK_SPACE) {
         settings_handle_enter(ctx);
         return;
       }
@@ -458,7 +458,7 @@ void settings_handle_event(struct app_context *ctx, const SDL_Event *e) {
 
   // Gamepad navigation and cancel/back handling
   if (e->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
-    SDL_GamepadButton btn = e->gbutton.button;
+    SDL_GamepadButton btn = COMPAT_GBUTTON_BUTTON(e);
 
     // If capturing a button, let the capture handler below process it
     if (g_settings.capture_mode == CAPTURE_NONE) {
@@ -495,20 +495,20 @@ void settings_handle_event(struct app_context *ctx, const SDL_Event *e) {
   if (g_settings.capture_mode == CAPTURE_BUTTON && e->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
     if (g_settings.capture_target != NULL) {
       int *dst = (int *)g_settings.capture_target;
-      *dst = e->gbutton.button;
+      *dst = COMPAT_GBUTTON_BUTTON(e);
     }
     g_settings.capture_mode = CAPTURE_NONE;
     g_settings.capture_target = NULL;
     g_settings.needs_redraw = 1;
     return;
   }
-  
+
   // Capture axis on significant motion
   if (g_settings.capture_mode == CAPTURE_AXIS && e->type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
-    if (SDL_abs(e->gaxis.value) > 16000) {
+    if (SDL_abs(COMPAT_GAXIS_VALUE(e)) > 16000) {
       if (g_settings.capture_target != NULL) {
         int *dst = (int *)g_settings.capture_target;
-        *dst = e->gaxis.axis;
+        *dst = COMPAT_GAXIS_AXIS(e);
       }
       g_settings.capture_mode = CAPTURE_NONE;
       g_settings.capture_target = NULL;
