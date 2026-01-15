@@ -5,7 +5,7 @@
 #define SDL2_inprint_h
 
 #include "fonts/fonts.h"
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 
 extern void inline_font_initialize(const struct inline_font *font);
 extern void inline_font_close(void);

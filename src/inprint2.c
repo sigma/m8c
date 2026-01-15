@@ -3,7 +3,7 @@
 // Modified to support multiple fonts & adding a background to text.
 
 #include "fonts/fonts.h"
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 
 #define CHARACTERS_PER_ROW 94
 #define CHARACTERS_PER_COLUMN 1
