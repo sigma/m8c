@@ -31,6 +31,24 @@
           nativeBuildInputs = [ cmake copyDesktopItems pkg-config ];
           buildInputs = [ sdl3 libserialport ];
         };
+      m8c-sdl2-package =
+        { stdenv
+        , cmake
+        , copyDesktopItems
+        , pkg-config
+        , SDL2
+        , libserialport
+        }:
+        stdenv.mkDerivation {
+          pname = "${pname}-sdl2";
+          inherit version;
+          src = ./.;
+
+          nativeBuildInputs = [ cmake copyDesktopItems pkg-config ];
+          buildInputs = [ SDL2 libserialport ];
+
+          cmakeFlags = [ "-DUSE_SDL2=ON" ];
+        };
       eachSystem = f: nixpkgs.lib.genAttrs (import systems) (system: f
         (import nixpkgs { inherit system; })
       );
@@ -47,17 +65,22 @@
     {
       packages = eachSystem (pkgs: rec {
         m8c = pkgs.callPackage m8c-package { };
+        m8c-sdl2 = pkgs.callPackage m8c-sdl2-package { };
         default = m8c;
       });
 
       overlays.default = final: _prev: {
-        inherit (self.packages.${final.system}) m8c;
+        inherit (self.packages.${final.system}) m8c m8c-sdl2;
       };
 
       apps = eachSystem (pkgs: rec {
         m8c = {
           type = "app";
           program = "${self.packages.${pkgs.system}.m8c}/bin/m8c";
+        };
+        m8c-sdl2 = {
+          type = "app";
+          program = "${self.packages.${pkgs.system}.m8c-sdl2}/bin/m8c";
         };
         default = m8c;
       });
@@ -70,7 +93,10 @@
             nix-prefetch-github
             treefmtEval.${system}.config.build.wrapper
           ];
-          inputsFrom = [ self.packages.${system}.m8c ];
+          inputsFrom = [
+            self.packages.${system}.m8c
+            self.packages.${system}.m8c-sdl2
+          ];
         };
       });
 
