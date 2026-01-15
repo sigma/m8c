@@ -7,7 +7,7 @@
 #include "common.h"
 #include "render.h"
 #include "log_overlay.h"
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 
 static unsigned char keyjazz_enabled = 0;
 static unsigned char keyjazz_base_octave = 2;
@@ -67,12 +67,12 @@ static void handle_keyjazz_settings(const SDL_Event *event, const config_params_
   const unsigned char KEYJAZZ_FINE_VELOCITY_STEP = 1;
   const unsigned char KEYJAZZ_COARSE_VELOCITY_STEP = 0x10;
 
-  if (event->key.repeat > 0 || event->key.type == SDL_EVENT_KEY_UP) {
+  if (COMPAT_KEY_REPEAT(event) > 0 || event->type == SDL_EVENT_KEY_UP) {
     return;
   }
 
-  const SDL_Scancode scancode = event->key.scancode;
-  const bool is_fine_adjustment = (event->key.mod & SDL_KMOD_ALT) > 0;
+  const SDL_Scancode scancode = COMPAT_KEY_SCANCODE(event);
+  const int is_fine_adjustment = (COMPAT_KEY_MOD(event) & KMOD_ALT) > 0;
 
   if (scancode == conf->key_jazz_dec_octave && keyjazz_base_octave > KEYJAZZ_MIN_OCTAVE) {
     keyjazz_base_octave--;
@@ -106,7 +106,7 @@ static input_msg_s handle_keyjazz(const SDL_Event *event, unsigned char keyvalue
   input_msg_s key = {keyjazz, keyvalue, keyjazz_velocity};
 
   // Check if this is a note key
-  const int note_value = get_note_for_scancode(event->key.scancode);
+  const int note_value = get_note_for_scancode(COMPAT_KEY_SCANCODE(event));
   if (note_value >= 0) {
     key.value = note_value;
     return key;
@@ -134,7 +134,7 @@ static input_msg_s handle_m8_keys(const SDL_Event *event, const config_params_s 
   input_msg_s key = {normal, 0, 0};
 
   // Get the current scancode
-  const SDL_Scancode scancode = event->key.scancode;
+  const SDL_Scancode scancode = COMPAT_KEY_SCANCODE(event);
 
   // Handle standard keycodes (single key mapping)
   const struct {
@@ -176,19 +176,19 @@ static input_msg_s handle_m8_keys(const SDL_Event *event, const config_params_s 
  * event, including key and modifier states.
  */
 void input_handle_key_down_event(struct app_context *ctx, const SDL_Event *event) {
-  if (event->key.repeat > 0) {
+  if (COMPAT_KEY_REPEAT(event) > 0) {
     return;
   }
 
-  if (event->key.key == SDLK_RETURN && (event->key.mod & SDL_KMOD_ALT) > 0) {
+  if (COMPAT_KEY_SYM(event) == SDLK_RETURN && (COMPAT_KEY_MOD(event) & KMOD_ALT) > 0) {
     toggle_fullscreen(&ctx->conf);
     return;
   }
-  if (event->key.key == SDLK_F4 && (event->key.mod & SDL_KMOD_ALT) > 0) {
+  if (COMPAT_KEY_SYM(event) == SDLK_F4 && (COMPAT_KEY_MOD(event) & KMOD_ALT) > 0) {
     ctx->app_state = QUIT;
     return;
   }
-  if (event->key.key == SDLK_ESCAPE) {
+  if (COMPAT_KEY_SYM(event) == SDLK_ESCAPE) {
     if (ctx->app_state == RUN) {
       display_keyjazz_overlay(toggle_input_keyjazz(), keyjazz_base_octave, keyjazz_velocity);
     }
@@ -196,18 +196,18 @@ void input_handle_key_down_event(struct app_context *ctx, const SDL_Event *event
   }
 
   // Toggle in-app log overlay using config-defined key
-  if (event->key.scancode == ctx->conf.key_toggle_log) {
+  if (COMPAT_KEY_SCANCODE(event) == ctx->conf.key_toggle_log) {
     log_overlay_toggle();
     return;
   }
 
-  if (event->key.scancode == ctx->conf.key_toggle_audio && ctx->device_connected) {
+  if (COMPAT_KEY_SCANCODE(event) == ctx->conf.key_toggle_audio && ctx->device_connected) {
     ctx->conf.audio_enabled = !ctx->conf.audio_enabled;
     audio_toggle(ctx->conf.audio_device_name, ctx->conf.audio_buffer_size);
     return;
   }
 
-  if (event->key.scancode == ctx->conf.key_reset && ctx->device_connected && !keyjazz_enabled) {
+  if (COMPAT_KEY_SCANCODE(event) == ctx->conf.key_reset && ctx->device_connected && !keyjazz_enabled) {
     m8_reset_display();
     return;
   }
