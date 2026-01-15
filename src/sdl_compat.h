@@ -121,6 +121,25 @@ typedef SDL_ScaleMode SDL_ScaleMode_t;
 #define SDL_INIT_GAMEPAD SDL_INIT_GAMECONTROLLER
 
 // ============================================================================
+// SDL_Init compatibility
+// ============================================================================
+
+// SDL2: SDL_Init returns 0 on success, negative on failure
+// SDL3: SDL_Init returns true (non-zero) on success, false (0) on failure
+// Use wrapper macros that normalize to SDL3 semantics (returns bool: true on success)
+// The __sdl2_init functions call the real SDL functions before macro expansion
+static inline int __sdl2_init_wrapper(Uint32 flags) {
+  extern DECLSPEC int SDLCALL SDL_Init(Uint32 flags);
+  return SDL_Init(flags) >= 0;
+}
+static inline int __sdl2_init_subsystem_wrapper(Uint32 flags) {
+  extern DECLSPEC int SDLCALL SDL_InitSubSystem(Uint32 flags);
+  return SDL_InitSubSystem(flags) >= 0;
+}
+#define SDL_Init(flags) __sdl2_init_wrapper(flags)
+#define SDL_InitSubSystem(flags) __sdl2_init_subsystem_wrapper(flags)
+
+// ============================================================================
 // Window flags
 // ============================================================================
 
@@ -172,13 +191,14 @@ static inline int SDL_SetSurfaceColorKey_Compat(SDL_Surface *surface, int flag, 
 #define SDL_IsGamepad(id) SDL_IsGameController(id)
 
 // SDL2 doesn't have SDL_GetGamepads - return joystick IDs array
+// SDL3 returns an allocated array even when empty (caller must free with SDL_free)
 static inline SDL_JoystickID *SDL_GetGamepads_Compat(int *count) {
   int num = SDL_NumJoysticks();
-  if (num <= 0) {
-    *count = 0;
-    return NULL;
+  if (num < 0) {
+    num = 0; // Treat errors as "no joysticks"
   }
-  SDL_JoystickID *ids = (SDL_JoystickID *)SDL_malloc(num * sizeof(SDL_JoystickID));
+  // Always allocate an array, even if empty (SDL3 behavior)
+  SDL_JoystickID *ids = (SDL_JoystickID *)SDL_malloc((num + 1) * sizeof(SDL_JoystickID));
   if (!ids) {
     *count = 0;
     return NULL;
@@ -186,6 +206,7 @@ static inline SDL_JoystickID *SDL_GetGamepads_Compat(int *count) {
   for (int i = 0; i < num; i++) {
     ids[i] = i;
   }
+  ids[num] = 0; // NULL-terminate like SDL3
   *count = num;
   return ids;
 }
@@ -214,6 +235,7 @@ static inline int SDL_GetGamepadButtonLabel_Compat(SDL_Gamepad *gp, SDL_GamepadB
 // ============================================================================
 
 // SDL_RenderTexture -> SDL_RenderCopyF (SDL2 float version)
+// SDL2 returns 0 on success, SDL3 returns bool - normalize to bool
 static inline int SDL_RenderTexture_Compat(SDL_Renderer *renderer, SDL_Texture *texture,
                                            const SDL_FRect *srcrect, const SDL_FRect *dstrect) {
   SDL_Rect src_int;
@@ -225,30 +247,32 @@ static inline int SDL_RenderTexture_Compat(SDL_Renderer *renderer, SDL_Texture *
     src_int.h = (int)srcrect->h;
     src_ptr = &src_int;
   }
-  return SDL_RenderCopyF(renderer, texture, src_ptr, dstrect);
+  return SDL_RenderCopyF(renderer, texture, src_ptr, dstrect) >= 0;
 }
 #define SDL_RenderTexture(r, t, s, d) SDL_RenderTexture_Compat(r, t, s, d)
 
 // SDL_RenderPoints -> SDL_RenderDrawPointsF
+// SDL2 returns 0 on success, SDL3 returns bool - normalize to bool
 static inline int SDL_RenderPoints_Compat(SDL_Renderer *renderer, const SDL_FPoint *points,
                                           int count) {
-  return SDL_RenderDrawPointsF(renderer, points, count);
+  return SDL_RenderDrawPointsF(renderer, points, count) >= 0;
 }
 #define SDL_RenderPoints(r, p, c) SDL_RenderPoints_Compat(r, p, c)
 
 // SDL_RenderLines -> SDL_RenderDrawLinesF
+// SDL2 returns 0 on success, SDL3 returns bool - normalize to bool
 static inline int SDL_RenderLines_Compat(SDL_Renderer *renderer, const SDL_FPoint *points,
                                          int count) {
-  return SDL_RenderDrawLinesF(renderer, points, count);
+  return SDL_RenderDrawLinesF(renderer, points, count) >= 0;
 }
 #define SDL_RenderLines(r, p, c) SDL_RenderLines_Compat(r, p, c)
 
 // SDL_RenderFillRect with FRect support -> convert to Rect
 // SDL3 uses SDL_FRect, SDL2 uses SDL_Rect
-// We redefine to use FRect since that's what SDL3 code expects
+// SDL2 returns 0 on success, SDL3 returns bool - normalize to bool
 // Note: Use SDL_RenderFillRectF which is an SDL2 native function taking SDL_FRect
 static inline int SDL_RenderFillRect_Compat(SDL_Renderer *renderer, const SDL_FRect *rect) {
-  return SDL_RenderFillRectF(renderer, rect);
+  return SDL_RenderFillRectF(renderer, rect) >= 0;
 }
 #undef SDL_RenderFillRect
 #define SDL_RenderFillRect(r, rect) SDL_RenderFillRect_Compat(r, rect)
@@ -270,6 +294,29 @@ static inline int SDL_RenderPresent_SDL2(SDL_Renderer *renderer) {
 #undef SDL_RenderPresent
 #define SDL_RenderPresent(r) SDL_RenderPresent_SDL2(r)
 
+// SDL_RenderClear: SDL2 returns 0 on success, SDL3 returns bool
+static inline int SDL_RenderClear_Compat(SDL_Renderer *renderer) {
+  extern DECLSPEC int SDLCALL SDL_RenderClear(SDL_Renderer *renderer);
+  return SDL_RenderClear(renderer) >= 0;
+}
+#define SDL_RenderClear(r) SDL_RenderClear_Compat(r)
+
+// SDL_SetRenderTarget: SDL2 returns 0 on success, SDL3 returns bool
+static inline int SDL_SetRenderTarget_Compat(SDL_Renderer *renderer, SDL_Texture *texture) {
+  extern DECLSPEC int SDLCALL SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture);
+  return SDL_SetRenderTarget(renderer, texture) >= 0;
+}
+#define SDL_SetRenderTarget(r, t) SDL_SetRenderTarget_Compat(r, t)
+
+// SDL_SetRenderDrawColor: SDL2 returns 0 on success, SDL3 returns bool
+static inline int SDL_SetRenderDrawColor_Compat(SDL_Renderer *renderer, Uint8 r, Uint8 g, Uint8 b,
+                                                 Uint8 a) {
+  extern DECLSPEC int SDLCALL SDL_SetRenderDrawColor(SDL_Renderer *renderer, Uint8 r, Uint8 g,
+                                                      Uint8 b, Uint8 a);
+  return SDL_SetRenderDrawColor(renderer, r, g, b, a) >= 0;
+}
+#define SDL_SetRenderDrawColor(rend, r, g, b, a) SDL_SetRenderDrawColor_Compat(rend, r, g, b, a)
+
 // ============================================================================
 // Texture functions
 // ============================================================================
@@ -287,6 +334,13 @@ static inline int SDL_GetTextureSize_Compat(SDL_Texture *texture, float *w, floa
   return 0;
 }
 #define SDL_GetTextureSize(t, w, h) SDL_GetTextureSize_Compat(t, w, h)
+
+// SDL_SetTextureScaleMode: SDL2 returns 0 on success, SDL3 returns bool
+static inline int SDL_SetTextureScaleMode_Compat(SDL_Texture *texture, SDL_ScaleMode scaleMode) {
+  extern DECLSPEC int SDLCALL SDL_SetTextureScaleMode(SDL_Texture *texture, SDL_ScaleMode scaleMode);
+  return SDL_SetTextureScaleMode(texture, scaleMode) >= 0;
+}
+#define SDL_SetTextureScaleMode(t, m) SDL_SetTextureScaleMode_Compat(t, m)
 
 // SDL3 property system not available in SDL2 - provide wrapper
 #define SDL_PROP_TEXTURE_WIDTH_NUMBER "SDL.texture.width"
