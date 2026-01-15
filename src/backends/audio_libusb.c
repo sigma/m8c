@@ -1,10 +1,10 @@
-#include "SDL3/SDL_audio.h"
-#include "SDL3/SDL_error.h"
 #ifdef USE_LIBUSB
+// Note: audio_libusb.c is only supported with SDL3 due to AudioStream API
+#ifndef USE_SDL2
 
+#include "../sdl_compat.h"
 #include "m8.h"
 #include "ringbuffer.h"
-#include <SDL3/SDL.h>
 #include <errno.h>
 #include <libusb.h>
 
@@ -293,4 +293,5 @@ void audio_toggle(const char *output_device_name, unsigned int audio_buffer_size
   SDL_Log("Libusb audio toggling not implemented yet");
 }
 
-#endif
+#endif // USE_SDL2
+#endif // USE_LIBUSB
