@@ -12,6 +12,9 @@
 SDL_AppResult handle_event(struct app_context *ctx, SDL_Event *event);
 
 int main(int argc, char *argv[]) {
+  // Set app metadata (works with sdl2-compat which is SDL3 underneath)
+  SDL_SetAppMetadata("M8C", APP_VERSION, "fi.laamaa.m8c");
+
   struct app_context *ctx = app_init(argc, argv);
   if (ctx == NULL) {
     return 1;

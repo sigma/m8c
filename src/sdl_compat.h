@@ -444,15 +444,8 @@ static inline int SDL_HideCursor_Compat(void) { return SDL_ShowCursor(SDL_DISABL
 // Misc functions
 // ============================================================================
 
-// SDL_SetAppMetadata doesn't exist in SDL2
-static inline int SDL_SetAppMetadata_Compat(const char *appname, const char *appversion,
-                                            const char *appidentifier) {
-  (void)appname;
-  (void)appversion;
-  (void)appidentifier;
-  return 1;
-}
-#define SDL_SetAppMetadata(n, v, i) SDL_SetAppMetadata_Compat(n, v, i)
+// SDL_SetAppMetadata doesn't exist in SDL2 - no-op
+#define SDL_SetAppMetadata(n, v, i) (1)
 
 // SDL_SetHint exists in both but some hints are different
 #define SDL_HINT_MAIN_CALLBACK_RATE "SDL_MAIN_CALLBACK_RATE"
