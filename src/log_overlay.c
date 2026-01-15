@@ -3,7 +3,7 @@
 
 #include "log_overlay.h"
 
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 
 #include "SDL2_inprint.h"
 #include "fonts/fonts.h"
