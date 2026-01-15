@@ -108,10 +108,10 @@ void audio_toggle(const char *output_device_name, unsigned int audio_buffer_size
 }
 
 int audio_initialize(const char *output_device_name, const unsigned int audio_buffer_size) {
-  SDL_AudioDeviceID m8_device_id = 0;
+  int m8_device_index = -1;  // Use -1 to indicate "not found"
   int output_device_index = -1;
 
-  if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+  if (!SDL_Init(SDL_INIT_AUDIO)) {
     SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "SDL Audio init failed: %s", SDL_GetError());
     return 0;
   }
@@ -125,11 +125,11 @@ int audio_initialize(const char *output_device_name, const unsigned int audio_bu
     SDL_LogDebug(SDL_LOG_CATEGORY_AUDIO, "Capture device %d: %s", i, name);
     if (name && SDL_strstr(name, "M8") != NULL) {
       SDL_LogInfo(SDL_LOG_CATEGORY_AUDIO, "M8 Audio Input device found: %s", name);
-      m8_device_id = i;
+      m8_device_index = i;
     }
   }
 
-  if (m8_device_id == 0 && num_capture > 0) {
+  if (m8_device_index < 0) {
     SDL_Log("Cannot find M8 audio input device");
     return 0;
   }
@@ -193,7 +193,7 @@ int audio_initialize(const char *output_device_name, const unsigned int audio_bu
   want_in.samples = audio_buffer_size > 0 ? audio_buffer_size : 1024;
   want_in.callback = NULL; // Use queue-based capture
 
-  const char *m8_name = SDL_GetAudioDeviceName(m8_device_id, 1);
+  const char *m8_name = SDL_GetAudioDeviceName(m8_device_index, 1);
   audio_dev_in = SDL_OpenAudioDevice(m8_name, 1, &want_in, &have_in, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 
   if (audio_dev_in == 0) {

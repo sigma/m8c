@@ -49,6 +49,19 @@ static void sdl_log_capture(void *userdata, int category, SDL_LogPriority priori
   (void)category;
   (void)priority;
 
+#ifdef USE_SDL2
+  // Filter out SDL's internal app metadata messages (shown by sdl2-compat)
+  // These show misleading default values since SDL2 doesn't have SDL_SetAppMetadata
+  if (message) {
+    if (SDL_strncmp(message, "App name:", 9) == 0 ||
+        SDL_strncmp(message, "App version:", 12) == 0 ||
+        SDL_strncmp(message, "App ID:", 7) == 0 ||
+        SDL_strncmp(message, "SDL revision:", 13) == 0) {
+      return; // Suppress these messages
+    }
+  }
+#endif
+
   char formatted[LOG_LINE_MAX_CHARS];
   SDL_snprintf(formatted, sizeof(formatted), ">%s", message ? message : "");
   log_buffer_append_line(formatted);
