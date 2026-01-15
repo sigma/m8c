@@ -3,7 +3,7 @@
 
 #include "config.h"
 #include "ini.h"
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
