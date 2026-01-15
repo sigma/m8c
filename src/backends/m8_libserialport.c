@@ -5,7 +5,7 @@
 // public domain
 
 #ifdef USE_LIBSERIALPORT
-#include <SDL3/SDL.h>
+#include "../sdl_compat.h"
 #include <libserialport.h>
 #include <stdlib.h>
 #include <string.h>

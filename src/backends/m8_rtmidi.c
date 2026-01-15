@@ -10,7 +10,7 @@
 #include "../config.h"
 #include "m8.h"
 #include "queue.h"
-#include <SDL3/SDL.h>
+#include "../sdl_compat.h"
 #include <rtmidi_c.h>
 #include <stdbool.h>
 #include <string.h>
