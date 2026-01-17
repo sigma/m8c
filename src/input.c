@@ -249,18 +249,29 @@ void input_handle_gamepad_button(struct app_context *ctx, const SDL_GamepadButto
   const struct {
     int button;
     unsigned char value;
+    const char *name;
   } normal_key_map[] = {
-      {conf->gamepad_up, key_up},         {conf->gamepad_left, key_left},
-      {conf->gamepad_down, key_down},     {conf->gamepad_right, key_right},
-      {conf->gamepad_select, key_select}, {conf->gamepad_start, key_start},
-      {conf->gamepad_opt, key_opt},       {conf->gamepad_edit, key_edit},
+      {conf->gamepad_up, key_up, "up"},         {conf->gamepad_left, key_left, "left"},
+      {conf->gamepad_down, key_down, "down"},     {conf->gamepad_right, key_right, "right"},
+      {conf->gamepad_select, key_select, "select"}, {conf->gamepad_start, key_start, "start"},
+      {conf->gamepad_opt, key_opt, "opt"},       {conf->gamepad_edit, key_edit, "edit"},
   };
+
+  const char *mapped_action = NULL;
 
   // Check normal key mappings
   for (size_t i = 0; i < sizeof(normal_key_map) / sizeof(normal_key_map[0]); i++) {
     if (button == normal_key_map[i].button) {
       key_value = normal_key_map[i].value;
+      mapped_action = normal_key_map[i].name;
     }
+  }
+
+  // Log button press/release
+  if (mapped_action) {
+    SDL_Log("Gamepad button %d %s -> %s", button, pressed ? "pressed" : "released", mapped_action);
+  } else {
+    SDL_Log("Gamepad button %d %s (unmapped)", button, pressed ? "pressed" : "released");
   }
 
   if (pressed && key_value != prev_key_value) {
