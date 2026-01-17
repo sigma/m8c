@@ -459,6 +459,24 @@ static inline int SDL_HideCursor_Compat(void) { return SDL_ShowCursor(SDL_DISABL
 #define SDL_strtok_r(str, delim, saveptr) strtok_r(str, delim, saveptr)
 #endif
 
+// SDL_strcasestr was added in SDL 2.0.12 - always provide fallback for SDL2
+// (some systems have headers/library version mismatch)
+static inline char *SDL_strcasestr_Compat(const char *haystack, const char *needle) {
+  if (!haystack || !needle) return NULL;
+  if (!*needle) return (char *)haystack;
+  for (; *haystack; haystack++) {
+    const char *h = haystack;
+    const char *n = needle;
+    while (*h && *n && SDL_tolower((unsigned char)*h) == SDL_tolower((unsigned char)*n)) {
+      h++;
+      n++;
+    }
+    if (!*n) return (char *)haystack;
+  }
+  return NULL;
+}
+#define SDL_strcasestr(h, n) SDL_strcasestr_Compat(h, n)
+
 // SDL3 renamed SDL_SetThreadPriority to SDL_SetCurrentThreadPriority
 #define SDL_SetCurrentThreadPriority(p) SDL_SetThreadPriority(p)
 
