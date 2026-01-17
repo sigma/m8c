@@ -387,7 +387,6 @@ static inline int SDL_CreateWindowAndRenderer_Compat(const char *title, int widt
                                                      Uint32 window_flags, SDL_Window **window,
                                                      SDL_Renderer **renderer) {
   // SDL2's version doesn't take title
-  Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
   if (SDL_CreateWindowAndRenderer(width, height, window_flags, window, renderer) != 0) {
     return 0;
   }
