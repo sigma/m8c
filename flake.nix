@@ -23,6 +23,15 @@
     let
       pname = "m8c";
       version = "2.2.3";
+      fs = nixpkgs.lib.fileset;
+      sourceFiles = fs.intersection (fs.gitTracked ./.) (
+        fs.unions [
+          ./CMakeLists.txt
+          ./src
+          ./package
+          ./gamecontrollerdb.txt
+        ]
+      );
       m8c-package =
         {
           stdenv,
@@ -34,7 +43,10 @@
         }:
         stdenv.mkDerivation {
           inherit pname version;
-          src = ./.;
+          src = fs.toSource {
+            root = ./.;
+            fileset = sourceFiles;
+          };
 
           nativeBuildInputs = [
             cmake
