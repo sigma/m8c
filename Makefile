@@ -13,15 +13,18 @@ SOURCE_DIR = src/
 # Find all source files in the src directory and subdirectories
 SRC_FILES := $(shell find $(SOURCE_DIR) -type f -name "*$(EXTENSION)")
 
-# Convert to object files
-OBJ := $(SRC_FILES:.c=.o)
-
 # Find all header files for dependencies
 DEPS := $(shell find src -type f -name "*.h")
 
 
 # SDL version: 2 or 3 (default: 3)
 SDL_VERSION ?= 3
+
+# Build directory per SDL version to avoid stale object conflicts
+BUILD_DIR = build/sdl$(SDL_VERSION)
+
+# Convert source files to object files in the build directory
+OBJ := $(SRC_FILES:%.c=$(BUILD_DIR)/%.o)
 
 ifeq ($(SDL_VERSION),2)
     SDL_PKG = sdl2
@@ -41,7 +44,8 @@ COMMON_CFLAGS = -DAPP_VERSION=\"v$(VERSION)\" -Wall -Wextra -O2 -pipe -I. -DNDEB
 local_CFLAGS = $(CFLAGS) $(shell pkg-config --cflags $(SDL_PKG) libserialport) -DUSE_LIBSERIALPORT $(SDL_DEFINE) $(COMMON_CFLAGS)
 
 #define a rule that applies to all files ending in the .o suffix, which says that the .o file depends upon the .c version of the file and all the .h files included in the DEPS macro.  Compile each object file
-%.o: %$(EXTENSION) $(DEPS)
+$(BUILD_DIR)/%.o: %$(EXTENSION) $(DEPS)
+	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(local_CFLAGS)
 
 #Combine them into the output file
@@ -61,7 +65,7 @@ rtmidi: m8c
 .PHONY: clean
 
 clean:
-	rm -f src/*.o src/backends/*.o *~ m8c
+	rm -rf build *~ m8c
 
 # PREFIX is environment variable, but if it is not set, then set default value
 ifeq ($(PREFIX),)
