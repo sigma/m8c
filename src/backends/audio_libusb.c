@@ -1,10 +1,8 @@
-#include "SDL3/SDL_audio.h"
-#include "SDL3/SDL_error.h"
 #ifdef USE_LIBUSB
 
+#include "../sdl_compat.h"
 #include "m8.h"
 #include "ringbuffer.h"
-#include <SDL3/SDL.h>
 #include <errno.h>
 #include <libusb.h>
 
@@ -17,7 +15,6 @@
 
 extern libusb_device_handle *devh;
 
-SDL_AudioStream *sdl_audio_stream = NULL;
 int audio_initialized = 0;
 RingBuffer *audio_buffer = NULL;
 static uint8_t *audio_callback_buffer = NULL;
@@ -25,10 +22,62 @@ static size_t audio_callback_buffer_size = 0;
 static int audio_prebuffer_filled = 0;
 #define PREBUFFER_SIZE (8 * 1024)  // Wait for 8KB before starting playback
 
+#ifdef USE_SDL2
+// ============================================================================
+// SDL2 Audio Implementation - Callback-based
+// ============================================================================
+
+static SDL_AudioDeviceID audio_device_id = 0;
+
+static void SDLCALL audio_callback_sdl2(void *userdata, Uint8 *stream, int len) {
+  (void)userdata;
+
+  if (audio_buffer == NULL) {
+    SDL_memset(stream, 0, len);
+    return;
+  }
+
+  uint32_t available_bytes = audio_buffer->size;
+
+  // Check if we have enough data for initial buffering
+  if (!audio_prebuffer_filled && available_bytes < PREBUFFER_SIZE) {
+    SDL_memset(stream, 0, len);
+    return;
+  }
+
+  // Mark prebuffer as filled once we have enough data
+  if (!audio_prebuffer_filled) {
+    audio_prebuffer_filled = 1;
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Audio prebuffer filled, starting playback");
+  }
+
+  if (available_bytes >= (uint32_t)len) {
+    // We have enough data
+    ring_buffer_pop(audio_buffer, stream, len);
+  } else if (available_bytes > 0) {
+    // Partial data - read what we can and pad with silence
+    uint32_t read_len = ring_buffer_pop(audio_buffer, stream, available_bytes);
+    SDL_memset(stream + read_len, 0, len - read_len);
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Partial buffer: %d/%d bytes", available_bytes, len);
+  } else {
+    // No data - output silence and reset prebuffer
+    SDL_memset(stream, 0, len);
+    audio_prebuffer_filled = 0;
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Buffer underflow! Resetting prebuffer");
+  }
+}
+
+#else
+// ============================================================================
+// SDL3 Audio Implementation - AudioStream-based
+// ============================================================================
+
+SDL_AudioStream *sdl_audio_stream = NULL;
+
 static void audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
   (void)userdata;  // Suppress unused parameter warning
   (void)additional_amount;  // Suppress unused parameter warning
-  
+
   // Reallocate callback buffer if needed
   if (audio_callback_buffer_size < (size_t)total_amount) {
     audio_callback_buffer = SDL_realloc(audio_callback_buffer, total_amount);
@@ -41,7 +90,7 @@ static void audio_callback(void *userdata, SDL_AudioStream *stream, int addition
 
   // Try to get audio data from ring buffer
   uint32_t available_bytes = audio_buffer->size;
-  
+
   // Check if we have enough data for initial buffering
   if (!audio_prebuffer_filled && available_bytes < PREBUFFER_SIZE) {
     // Not enough data yet, output silence and wait
@@ -51,7 +100,7 @@ static void audio_callback(void *userdata, SDL_AudioStream *stream, int addition
     }
     return;
   }
-  
+
   // Mark prebuffer as filled once we have enough data
   if (!audio_prebuffer_filled) {
     audio_prebuffer_filled = 1;
@@ -85,6 +134,12 @@ static void audio_callback(void *userdata, SDL_AudioStream *stream, int addition
   }
 }
 
+#endif // USE_SDL2
+
+// ============================================================================
+// Common libusb transfer handling
+// ============================================================================
+
 static void cb_xfr(struct libusb_transfer *xfr) {
   unsigned int i;
   static int error_count = 0;
@@ -103,7 +158,11 @@ static void cb_xfr(struct libusb_transfer *xfr) {
 
     if (pack->actual_length > 0) {
       const uint8_t *data = libusb_get_iso_packet_buffer_simple(xfr, i);
+#ifdef USE_SDL2
+      if (audio_device_id != 0 && audio_buffer != NULL) {
+#else
       if (sdl_audio_stream != 0 && audio_buffer != NULL) {
+#endif
         uint32_t actual = ring_buffer_push(audio_buffer, data, pack->actual_length);
         if (actual == (uint32_t)-1) {
           SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "Buffer overflow!");
@@ -150,7 +209,7 @@ static int benchmark_in() {
 
 int audio_initialize(const char *output_device_name, unsigned int audio_buffer_size) {
   (void)audio_buffer_size;  // Suppress unused parameter warning
-  
+
   SDL_Log("USB audio setup");
 
   if (devh == NULL) {
@@ -186,6 +245,12 @@ int audio_initialize(const char *output_device_name, unsigned int audio_buffer_s
     return rc;
   }
 
+#ifdef USE_SDL2
+  if (!SDL_Init(SDL_INIT_AUDIO)) {
+    SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "Init audio failed %s", SDL_GetError());
+    return -1;
+  }
+#else
   if (!SDL_WasInit(SDL_INIT_AUDIO)) {
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
       SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "Init audio failed %s", SDL_GetError());
@@ -194,23 +259,61 @@ int audio_initialize(const char *output_device_name, unsigned int audio_buffer_s
   } else {
     SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "Audio was already initialised");
   }
+#endif
 
+  SDL_Log("Current audio driver is %s and device %s", SDL_GetCurrentAudioDriver(),
+          output_device_name);
+
+  // Create larger ring buffer for stable audio
+  audio_buffer = ring_buffer_create(256 * 1024);
+
+#ifdef USE_SDL2
+  // SDL2: Use callback-based audio
+  SDL_AudioSpec want, have;
+  SDL_memset(&want, 0, sizeof(want));
+  want.freq = 44100;
+  want.format = AUDIO_S16SYS;
+  want.channels = 2;
+  want.samples = 1024;
+  want.callback = audio_callback_sdl2;
+  want.userdata = NULL;
+
+  // Find output device if specified
+  int device_index = -1;
+  if (output_device_name != NULL) {
+    int num_devices = SDL_GetNumAudioDevices(0);
+    for (int i = 0; i < num_devices; i++) {
+      const char *name = SDL_GetAudioDeviceName(i, 0);
+      if (name && SDL_strcasestr(name, output_device_name) != NULL) {
+        device_index = i;
+        SDL_Log("Found requested output device: %s", name);
+        break;
+      }
+    }
+  }
+
+  const char *dev_name = device_index >= 0 ? SDL_GetAudioDeviceName(device_index, 0) : NULL;
+  audio_device_id = SDL_OpenAudioDevice(dev_name, 0, &want, &have, 0);
+
+  if (audio_device_id == 0) {
+    SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "Failed to open audio device: %s", SDL_GetError());
+    ring_buffer_free(audio_buffer);
+    return -1;
+  }
+
+  SDL_PauseAudioDevice(audio_device_id, 0);  // Start playback
+
+#else
+  // SDL3: Use AudioStream
   static SDL_AudioSpec audio_spec;
   audio_spec.format = SDL_AUDIO_S16;
   audio_spec.channels = 2;
   audio_spec.freq = 44100;
 
-  SDL_Log("Current audio driver is %s and device %s", SDL_GetCurrentAudioDriver(),
-          output_device_name);
-
-  // Create larger ring buffer for stable audio - about 1.5 seconds at 44.1kHz stereo 16-bit
-  audio_buffer = ring_buffer_create(256 * 1024);
-
   if (SDL_strcasecmp(SDL_GetCurrentAudioDriver(), "openslES") == 0 || output_device_name == NULL) {
     SDL_Log("Using default audio device");
     sdl_audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, &audio_callback, &audio_buffer);
   } else {
-    // TODO: Implement audio device selection
     sdl_audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, &audio_callback, &audio_buffer);
   }
 
@@ -221,8 +324,9 @@ int audio_initialize(const char *output_device_name, unsigned int audio_buffer_s
   }
 
   SDL_ResumeAudioStreamDevice(sdl_audio_stream);
+#endif
 
-  // Good to go
+  // Start USB capture
   SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "Starting capture");
   if ((rc = benchmark_in()) < 0) {
     SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "Capture failed to start: %d", rc);
@@ -230,10 +334,9 @@ int audio_initialize(const char *output_device_name, unsigned int audio_buffer_s
   }
 
   audio_initialized = 1;
-  audio_prebuffer_filled = 0;  // Reset prebuffer state
+  audio_prebuffer_filled = 0;
   SDL_Log("Successful init");
   return 1;
-
 }
 
 void audio_close() {
@@ -266,22 +369,31 @@ void audio_close() {
     return;
   }
 
+#ifdef USE_SDL2
+  if (audio_device_id != 0) {
+    SDL_Log("Closing audio device");
+    SDL_CloseAudioDevice(audio_device_id);
+    audio_device_id = 0;
+  }
+#else
   if (sdl_audio_stream != NULL) {
     SDL_Log("Closing audio device");
     SDL_DestroyAudioStream(sdl_audio_stream);
     sdl_audio_stream = 0;
   }
 
-  SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "Audio closed");
-
-  ring_buffer_free(audio_buffer);
-
-  // Free callback buffer
+  // Free callback buffer (SDL3 only uses this)
   if (audio_callback_buffer) {
     SDL_free(audio_callback_buffer);
     audio_callback_buffer = NULL;
     audio_callback_buffer_size = 0;
   }
+#endif
+
+  SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "Audio closed");
+
+  ring_buffer_free(audio_buffer);
+  audio_buffer = NULL;
 
   audio_initialized = 0;
   audio_prebuffer_filled = 0;
@@ -293,4 +405,12 @@ void audio_toggle(const char *output_device_name, unsigned int audio_buffer_size
   SDL_Log("Libusb audio toggling not implemented yet");
 }
 
+#ifdef USE_SDL2
+// SDL2 requires audio_pump() but libusb backend doesn't need it
+// (audio data comes from USB callbacks, not polling)
+void audio_pump(void) {
+  // No-op for libusb backend
+}
 #endif
+
+#endif // USE_LIBUSB

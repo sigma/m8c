@@ -9,6 +9,8 @@ set(APP_NAME m8c)
 option(USE_LIBSERIALPORT "Use libserialport as a backend" OFF)
 option(USE_LIBUSB "Use libusb as a backend" OFF)
 option(USE_RTMIDI "Use RtMidi as a backend" OFF)
+option(USE_SDL2 "Build with SDL2 instead of SDL3" OFF)
+option(SKIP_BUNDLE_FIXUP "Skip fixup_bundle for Nix builds" OFF)
 
 # Enable USE_LIBSERIALPORT by default if neither USE_LIBUSB nor USE_RTMIDI are defined
 if (NOT USE_LIBUSB AND NOT USE_RTMIDI)
@@ -35,13 +37,23 @@ else ()
 endif ()
 
 find_package(PkgConfig REQUIRED)
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 
-pkg_check_modules(SDL3 REQUIRED sdl3)
-
-target_link_options(${APP_NAME} PRIVATE ${SDL3_LDFLAGS})
-target_include_directories(${APP_NAME} PRIVATE ${SDL3_INCLUDE_DIRS})
-target_compile_options(${APP_NAME} PRIVATE ${SDL3_CFLAGS_OTHER})
+# SDL2/SDL3 selection
+if(USE_SDL2)
+    message(STATUS "Building with SDL2")
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+    target_link_options(${APP_NAME} PRIVATE ${SDL2_LDFLAGS})
+    target_include_directories(${APP_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_compile_options(${APP_NAME} PRIVATE ${SDL2_CFLAGS_OTHER})
+    target_compile_definitions(${APP_NAME} PRIVATE USE_SDL2)
+else()
+    message(STATUS "Building with SDL3")
+    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+    pkg_check_modules(SDL3 REQUIRED sdl3)
+    target_link_options(${APP_NAME} PRIVATE ${SDL3_LDFLAGS})
+    target_include_directories(${APP_NAME} PRIVATE ${SDL3_INCLUDE_DIRS})
+    target_compile_options(${APP_NAME} PRIVATE ${SDL3_CFLAGS_OTHER})
+endif()
 
 if (USE_LIBSERIALPORT)
     pkg_check_modules(LIBSERIALPORT REQUIRED libserialport)
@@ -96,16 +108,18 @@ if (APPLE)
 
     set(APPS "\${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app")
 
-    if(CODESIGN_CERT_NAME)
-        # Use the specified certificate
-        install(CODE "include(BundleUtilities)
-        fixup_bundle(\"${APPS}\" \"\" \"\")
-        execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign \"${CODESIGN_CERT_NAME}\" --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
-    else()
-        # Use ad-hoc signing (self-signed) when no certificate is specified
-        install(CODE "include(BundleUtilities)
-        fixup_bundle(\"${APPS}\" \"\" \"\")
-        execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign - --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+    if(NOT SKIP_BUNDLE_FIXUP)
+        if(CODESIGN_CERT_NAME)
+            # Use the specified certificate
+            install(CODE "include(BundleUtilities)
+            fixup_bundle(\"${APPS}\" \"\" \"\")
+            execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign \"${CODESIGN_CERT_NAME}\" --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+        else()
+            # Use ad-hoc signing (self-signed) when no certificate is specified
+            install(CODE "include(BundleUtilities)
+            fixup_bundle(\"${APPS}\" \"\" \"\")
+            execute_process(COMMAND codesign --force --options runtime --deep --entitlements ../package/macos/Entitlements.plist --sign - --timestamp  \${CMAKE_INSTALL_PREFIX}/${APP_NAME}.app)")
+        endif()
     endif()
 
     set(CPACK_PACKAGE_NAME "m8c")

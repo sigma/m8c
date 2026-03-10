@@ -6,7 +6,7 @@
 #include "m8.h"
 #ifdef USE_LIBUSB
 
-#include <SDL3/SDL.h>
+#include "../sdl_compat.h"
 #include <libusb.h>
 #include <stdlib.h>
 #include <string.h>
