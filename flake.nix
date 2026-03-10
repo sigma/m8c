@@ -45,6 +45,8 @@
             sdl3
             libserialport
           ];
+
+          cmakeFlags = [ "-DSKIP_BUNDLE_FIXUP=ON" ];
         };
       eachSystem =
         f: nixpkgs.lib.genAttrs (import systems) (system: f (import nixpkgs { inherit system; }));
@@ -71,13 +73,24 @@
         inherit (self.packages.${final.system}) m8c;
       };
 
-      apps = eachSystem (pkgs: rec {
-        m8c = {
-          type = "app";
-          program = "${self.packages.${pkgs.system}.m8c}/bin/m8c";
-        };
-        default = m8c;
-      });
+      apps = eachSystem (
+        pkgs:
+        let
+          m8cBin =
+            pkg:
+            if pkgs.stdenv.isDarwin then
+              "${pkg}/m8c.app/Contents/MacOS/m8c"
+            else
+              "${pkg}/bin/m8c";
+        in
+        rec {
+          m8c = {
+            type = "app";
+            program = m8cBin self.packages.${pkgs.system}.m8c;
+          };
+          default = m8c;
+        }
+      );
 
       devShells = eachSystem (
         pkgs: with pkgs; {
