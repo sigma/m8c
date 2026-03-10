@@ -12,37 +12,54 @@
     };
   };
 
-  outputs = { self, nixpkgs, systems, treefmt-nix, ... }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      systems,
+      treefmt-nix,
+      ...
+    }:
     let
       pname = "m8c";
       version = "2.2.3";
       m8c-package =
-        { stdenv
-        , cmake
-        , copyDesktopItems
-        , pkg-config
-        , sdl3
-        , libserialport
+        {
+          stdenv,
+          cmake,
+          copyDesktopItems,
+          pkg-config,
+          sdl3,
+          libserialport,
         }:
         stdenv.mkDerivation {
           inherit pname version;
           src = ./.;
 
-          nativeBuildInputs = [ cmake copyDesktopItems pkg-config ];
-          buildInputs = [ sdl3 libserialport ];
+          nativeBuildInputs = [
+            cmake
+            copyDesktopItems
+            pkg-config
+          ];
+          buildInputs = [
+            sdl3
+            libserialport
+          ];
         };
-      eachSystem = f: nixpkgs.lib.genAttrs (import systems) (system: f
-        (import nixpkgs { inherit system; })
+      eachSystem =
+        f: nixpkgs.lib.genAttrs (import systems) (system: f (import nixpkgs { inherit system; }));
+      treefmtEval = eachSystem (
+        pkgs:
+        treefmt-nix.lib.evalModule pkgs (_: {
+          projectRootFile = "flake.nix";
+          programs = {
+            clang-format.enable = false; # TODO(pope): Enable and format C code
+            deadnix.enable = true;
+            nixfmt.enable = true;
+            statix.enable = true;
+          };
+        })
       );
-      treefmtEval = eachSystem (pkgs: treefmt-nix.lib.evalModule pkgs (_: {
-        projectRootFile = "flake.nix";
-        programs = {
-          clang-format.enable = false; # TODO(pope): Enable and format C code
-          deadnix.enable = true;
-          nixpkgs-fmt.enable = true;
-          statix.enable = true;
-        };
-      }));
     in
     {
       packages = eachSystem (pkgs: rec {
@@ -62,17 +79,19 @@
         default = m8c;
       });
 
-      devShells = eachSystem (pkgs: with pkgs; {
-        default = mkShell {
-          packages = [
-            cmake
-            gnumake
-            nix-prefetch-github
-            treefmtEval.${system}.config.build.wrapper
-          ];
-          inputsFrom = [ self.packages.${system}.m8c ];
-        };
-      });
+      devShells = eachSystem (
+        pkgs: with pkgs; {
+          default = mkShell {
+            packages = [
+              cmake
+              gnumake
+              nix-prefetch-github
+              treefmtEval.${system}.config.build.wrapper
+            ];
+            inputsFrom = [ self.packages.${system}.m8c ];
+          };
+        }
+      );
 
       formatter = eachSystem (pkgs: treefmtEval.${pkgs.system}.config.build.wrapper);
     };
