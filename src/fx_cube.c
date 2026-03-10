@@ -1,6 +1,6 @@
 #include "SDL2_inprint.h"
 
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 #include <math.h>
 
 // Handle screensaver cube effect

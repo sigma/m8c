@@ -1,5 +1,5 @@
 #include "ringbuffer.h"
-#include <SDL3/SDL.h>
+#include "../sdl_compat.h"
 
 RingBuffer *ring_buffer_create(uint32_t size) {
   RingBuffer *rb = SDL_malloc(sizeof(*rb));

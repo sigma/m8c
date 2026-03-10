@@ -7,7 +7,7 @@
 #include "common.h"
 #include "config.h"
 
-#include <SDL3/SDL_events.h>
+#include "sdl_compat.h"
 
 typedef enum input_buttons_t {
   INPUT_UP,

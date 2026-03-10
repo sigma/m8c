@@ -3,7 +3,7 @@
 #ifndef SETTINGS_H_
 #define SETTINGS_H_
 
-#include <SDL3/SDL.h>
+#include "sdl_compat.h"
 #include <stdbool.h>
 
 #include "config.h"

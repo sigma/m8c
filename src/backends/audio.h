@@ -8,4 +8,7 @@ void audio_toggle(const char *output_device_name, unsigned int audio_buffer_size
 void audio_process(void);
 void audio_close(void);
 
+// SDL2 requires periodic pumping of audio data from main loop (no-op for SDL3)
+void audio_pump(void);
+
 #endif
