@@ -15,7 +15,7 @@
   outputs = { self, nixpkgs, systems, treefmt-nix, ... }:
     let
       pname = "m8c";
-      version = "2.2.3";
+      version = builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./VERSION);
       m8c-package =
         { stdenv
         , cmake

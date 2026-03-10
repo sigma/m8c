@@ -4,7 +4,7 @@ set -xe
 # Ubuntu 20.04
 
 APP=m8c
-VERSION=2.0.0
+VERSION=$(cat VERSION)
 
 if [ "$1" == "build-sdl" ]; then
 

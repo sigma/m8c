@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(m8c LANGUAGES C VERSION 2.2.4)
+# Read version from VERSION file
+file(STRINGS VERSION PROJECT_VERSION LIMIT_COUNT 1)
+project(m8c LANGUAGES C VERSION ${PROJECT_VERSION})
 
 set(APP_NAME m8c)
 
@@ -68,6 +70,9 @@ endif ()
 if (WIN32)
     target_link_libraries(${APP_NAME} ${SDL3_LIBRARIES} ${LIBSERIALPORT_LIBRARIES})
 endif ()
+
+# Pass version to source code
+target_compile_definitions(${APP_NAME} PRIVATE APP_VERSION="v${PROJECT_VERSION}")
 
 if (APPLE)
     # Destination paths below are relative to ${CMAKE_INSTALL_PREFIX}
